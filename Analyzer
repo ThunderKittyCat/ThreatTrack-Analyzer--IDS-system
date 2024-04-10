@@ -264,13 +264,13 @@ function detect_malicious_IP() {
     rm list_of_MaliciousIP.lst &>/dev/null 2>&1
     
     # Start capturing network traffic and save it to a file, then filter it for malicious IPs
-    tshark &>/dev/null -i "$interface" -t ad -w suspicious.pcap "$(cat list_of_IOC.lst)" or host 192.168.253.129  &
+    tshark &>/dev/null -i "$interface" -t ad -w suspicious.pcap "$(cat list_of_IOC.lst)"  &
     
     # Start displaying Real-Time monitoring of suspicious activity on screen
-    tshark -i "$interface" -t ad "$(cat list_of_IOC.lst)" or host 192.168.253.129 &
+    tshark -i "$interface" -t ad "$(cat list_of_IOC.lst)" &
         
     while true; do
-		tshark -i "$interface" -t ad "$(cat list_of_IOC.lst)" or host 192.168.253.129 >> Pcap.txt
+		tshark -i "$interface" -t ad "$(cat list_of_IOC.lst)" >> Pcap.txt
 		sleep 1  # Adjust sleep duration as needed
 	done &
 	
