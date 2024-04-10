@@ -1,0 +1,386 @@
+#!/bin/bash
+
+# Source the configuration file and api_key file
+source program.conf
+source api_key.conf
+
+# Store the current directory in a variable
+current_dir=$(pwd)
+
+# Get the machine's IP address dynamically
+machine_ip=$(hostname -I | awk '{print $1}')
+
+# Set up trap to clean up background processes when Ctrl+C is pressed
+trap 'kill $(jobs -p); exit' SIGINT
+
+# Check if the "logs" directory exists and delete if it does already exit.
+function rm_logs_if_exist() {
+	# Check if the "logs" directory exists
+	if [ -d "logs" ]; then
+		echo "$(format_bold "$(color_green "[#] Removing the logs directory for more use of the script...")")"
+		sudo rm -r "logs"
+		sleep 1
+	fi
+}
+
+
+# Check if all the services are installed and if not, download them.
+function check_and_install_service() {
+    # Check package manager
+    if command -v apt-get &> /dev/null; then
+        PACKAGE_MANAGER="apt-get"
+    elif command -v dnf &> /dev/null; then
+        PACKAGE_MANAGER="dnf"
+    elif command -v pacman &> /dev/null; then
+        PACKAGE_MANAGER="pacman"
+    else
+        echo "$(format_bold "$(color_red "[!] Unsupported package manager. Exiting...")")"
+        exit 1
+    fi
+
+    # Install services
+    for x in tshark ; do
+        sleep 1
+        if [ -z "$(which $x)" ]; then
+            echo "$(format_bold "$(color_red "[!] $x is not installed, installing..")")"
+            sleep 1
+            echo "$(format_bold "$(color_blue "[#] All installation logs are saved in logs/program_logs folder")")"
+            LOG_FILE="logs/$x.program_log.txt"  # Create log file for each package inside the log folder
+            touch lo==
+            sudo "$PACKAGE_MANAGER" install -y $x > "$LOG_FILE" 2>&1  # Redirect both stdout and stderr to the log file\
+            echo "$(format_bold "$(color_green "[#] $x is installed, YAY :D")")"
+        else
+            echo "$(format_bold "$(color_green "[#] $x is installed, YAY :D")")"
+        fi
+        sleep 1
+    done
+    # Download VT-cli
+    cd logs
+    echo "$(format_bold "$(color_yellow "[#] Cloning vt-cli repository")")"
+    wget https://github.com/VirusTotal/vt-cli/releases/download/1.0.0/Linux64.zip &> /dev/null
+    progress_bar 2
+    echo "$(format_bold "$(color_yellow "[#] Unzipping...")")"
+    unzip Linux64.zip &> /dev/null
+    sudo ./vt init --apikey "$API_KEY" &>/dev/null
+    echo "$(format_bold "$(color_green "[!] Action successful. Continuing...")")"
+    cd "$current_dir"
+    
+	
+    sleep 2
+    echo "$(format_bold "$(color_white "[*] All the download logs are saved manually in logs folder")")"
+}
+
+
+# Function include all the colors for later use
+function color_functions() {
+  color_red() {
+    echo -e "\e[91m$1\e[0m"
+  }
+
+  color_blue() {
+    echo -e "\e[94m$1\e[0m"
+  }
+
+  color_green() {
+    echo -e "\e[32m$1\e[0m"
+  }
+
+  color_gold() {
+    echo -e "\e[93m$1\e[0m"
+  }
+
+  color_purple() {
+    echo -e "\e[95m$1\e[0m"
+  }
+
+  color_dark_green() {
+    echo -e "\e[92m$1\e[0m"
+  }
+
+  color_dark_blue() {
+    echo -e "\e[38;5;22m$1\e[0m"
+  }
+
+  color_dark_red() {
+    echo -e "\e[31m$1\e[0m"
+  }
+
+  color_dark_purple() {
+    echo -e "\e[35m$1\e[0m"
+  }
+
+  color_orange() {
+    echo -e "\e[33m$1\e[0m"
+  }
+
+  color_brown() {
+    echo -e "\e[33m$1\e[0m"
+  }
+
+  color_black() {
+    echo -e "\e[30m$1\e[0m"
+  }
+
+  color_white() {
+    echo -e "\e[97m$1\e[0m"
+  }
+
+  color_yellow() {
+    echo -e "\e[38;5;220m$1\e[0m"
+  }
+
+  color_aqua() {
+    echo -e "\e[96m$1\e[0m"
+  }
+
+  color_cyan() {
+    echo -e "\e[36m$1\e[0m"
+  }
+
+  color_pink() {
+    echo -e "\e[95m$1\e[0m"
+  }
+
+  color_magenta() {
+    echo -e "\e[95m$1\e[0m"
+  }
+
+  color_gray() {
+    echo -e "\e[90m$1\e[0m"
+  }
+
+  color_dark_gray() {
+    echo -e "\e[2m$1\e[0m"
+  }
+
+  color_light_blue() {
+    echo -e "\e[94m$1\e[0m"
+  }
+
+  color_lime() {
+    echo -e "\e[92m$1\e[0m"
+  }
+
+  color_light_gray() {
+    echo -e "\e[37m$1\e[0m"
+  }
+}
+color_functions
+
+
+# Function include all the formats for later use
+function format_functions() {
+	format_bold() {
+		echo -e "\e[1m$1\e[0m"
+	}
+	format_tilt() {
+		echo -e "\e[3m$1\e[0m"
+	}
+	format_underline() {
+		echo -e "\e[4m$1\e[0m"
+	}
+	format_blink() {
+		echo -e "\e[5m$1\e[0m"
+	}
+	format_inverted() {
+		echo -e "\e[7m$1\e[0m"
+	}
+}
+format_functions
+
+
+# Function include progress bar for later use
+function progress_bar() {
+  local duration=$1
+  local bar_length=20
+
+  for ((i=0; i<=duration; i++)); do
+    local filled=$(printf "%-$((i*bar_length/duration))s" | tr ' ' '=')
+    local remaining=$(printf "%-$(((duration-i)*bar_length/duration))s" | tr ' ' '-')
+    printf "\r[%s%s] %d%%" "$filled" "$remaining" "$((i * 100 / duration))"
+    sleep 1
+  done
+  printf "\n"
+}
+
+
+# Displays the header
+function display_header() {
+    # ANSI color codes
+    RED='\033[1;31m'
+    GREEN='\033[1;32m'
+    YELLOW='\033[1;33m'
+    RESET='\033[0m'  # Reset to default color
+
+    # Figlet font
+    FIGLET_FONT="slant"
+
+    # Clear the screen
+    clear
+
+    # Display the header
+    echo -e "${RED}"
+    figlet -f ${FIGLET_FONT} "IDS System"
+    echo -e "${RESET}"
+    echo -e "${GREEN}by Mitsi${RESET}"
+    echo -e "${YELLOW}-----------------------------------------${RESET}"
+}
+
+function construct_host_filter() {
+    # Check if file exists and is readable
+    if [ ! -f "$1" ] || [ ! -r "$1" ]; then
+        echo "Error: File '$1' does not exist or is not readable."
+        exit 1
+    fi
+    
+    # Initialize the host filter
+    host_filter=""
+
+    # Read each line from the file
+    while IFS= read -r ip; do
+        # Append the host filter for each IP address
+        host_filter+="host $ip or "
+    done < "$1"
+
+    # Remove the trailing "or " from the last IP address
+    host_filter="${host_filter%or }"
+
+    # Print the constructed host filter
+    echo "$host_filter"
+}
+# Function to alert if there is a suspicious activity in the network 
+function detect_malicious_IP() {
+    
+    # Navigate to the logs directory
+    cd logs
+    
+    # Get malicious IP list from website and save it to a file
+    curl -s https://feeds.dshield.org/top10-2.txt | awk '{print $1}' > list_of_MaliciousIP.lst
+    
+    # Call the display-lines function with the filename to process the list of malicious IPs
+    construct_host_filter list_of_MaliciousIP.lst > list_of_IOC.lst 
+    
+    # Remove the temporary file containing the list of malicious IPs
+    rm list_of_MaliciousIP.lst &>/dev/null 2>&1
+    
+    # Start capturing network traffic and save it to a file, then filter it for malicious IPs
+    tshark &>/dev/null -i "$interface" -t ad -w suspicious.pcap "$(cat list_of_IOC.lst)" or host 192.168.253.129  &
+    
+    # Start displaying Real-Time monitoring of suspicious activity on screen
+    tshark -i "$interface" -t ad "$(cat list_of_IOC.lst)" or host 192.168.253.129 &
+        
+    while true; do
+		tshark -i "$interface" -t ad "$(cat list_of_IOC.lst)" or host 192.168.253.129 >> Pcap.txt
+		sleep 1  # Adjust sleep duration as needed
+	done &
+	
+    
+    # Return to the original directory
+    cd "$current_dir"
+}
+
+# Follow up function to the next one, to make a directory that will be used there.
+function make_dir_for_extracted_files(){
+	cd logs
+    
+    echo "Preparing to extract HTTP files"
+    
+    # Path to the directory for storing extracted files
+    output_dir="extracted_files"
+
+    # Create the output directory if it doesn't exist
+    mkdir -p "$output_dir"
+    cd "$current_dir"
+    cd logs
+}
+
+function extract_and_check_files() {
+    local processed_hashes=()  # Array to store hashes of processed files
+
+    while true; do
+        # Command to extract suspicious files from the pcap file
+        tshark -r "suspicious.pcap" --export-objects "http,extracted_files" &>/dev/null 
+        # Wait for a few seconds to ensure files are extracted 
+        sleep 3
+        
+        # Loop through the extracted files if the directory exists
+        if [ -d "$output_dir" ]; then
+            for file in "$output_dir"/*; do
+                if [ -f "$file" ]; then  # Check if the item is a file (not a directory)
+                    # Calculate the hash of the file
+                    file_hash=$(md5sum "$file" | awk '{print $1}')
+
+                    # Check if the file hash is in the processed list
+                    if [[ " ${processed_hashes[@]} " =~ " $file_hash " ]]; then
+                        # If the hash exists, delete the duplicate file
+                        sudo rm -r "$file"
+                    else
+                        # Add the file hash to the processed list
+                        processed_hashes+=("$file_hash")
+
+                        # Check if the file size is under 1 MB
+                        file_size=$(stat -c %s "$file")
+                        if [ "$file_size" -le 1048576 ]; then
+                            # Check the hash against VirusTotal
+							vt_result=$(sudo ./vt file search "$file_hash" | grep 'malicious')
+							# File is not detected as malicious by VirusTotal
+							echo "$(format_bold "$(color_yellow "Suspicious file found:")") $file"
+							echo "$(format_bold "$(color_yellow "Hash:")") $file_hash"
+							echo "$(format_bold "$(color_yellow "Timestamp:")") $(date)"
+							if [[ -z "$vt_result" ]]; then
+								echo "$(format_bold "$(color_red "VirusTotal Result:")") VT found not matches :c"
+							else 
+								echo "$(format_bold "$(color_red "VirusTotal Result:")") $vt_result"
+							fi
+							echo "$(format_bold "$(color_yellow "---------------------------------------------")")"
+							progress_bar 1
+							# Append the information to a log file
+							echo "$(format_bold "$(color_yellow "Suspicious file found:")") $file" >> suspicious_files.lst
+							echo "$(format_bold "$(color_yellow "Hash:")") $file_hash" >> suspicious_files.lst
+							echo "$(format_bold "$(color_yellow "Timestamp:")") $(date)" >> suspicious_files.lst
+							if [[ -z "$vt_result" ]]; then
+								echo "$(format_bold "$(color_red "VirusTotal Result:")") VT found not matches :c" >> suspicious_files.lst
+							else 
+								echo "$(format_bold "$(color_red "VirusTotal Result:")") $vt_result" >> suspicious_files.lst
+							fi
+							echo "$(format_bold "$(color_red "VirusTotal Result:")") $vt_result" >> suspicious_files.lst
+							sleep 1
+							echo "$(format_bold "$(color_yellow "---------------------------------------------")")" >> suspicious_files.lst
+                        else 
+                            # Delete files larger than 1MB
+                            sudo rm -r "$file"
+                            echo "Large file removed: $file"
+                        fi
+                    fi
+                fi
+            done
+        fi
+    done
+}
+
+
+
+# Main function
+main() {
+    rm_logs_if_exist
+    mkdir logs &>/dev/null # Make a log folder for all the different logs
+    
+    check_and_install_service # Install missing services IF needed
+    progress_bar 2
+    display_header # Displays header
+
+    # Record the start time
+    start_time=$(date +%Y-%m-%d\ %H:%M:%S) # Record the start time
+    
+    progress_bar 2
+    detect_malicious_IP
+    
+    make_dir_for_extracted_files
+	extract_and_check_files 
+	progress_bar 5
+	
+	sudo rm -r 'lo==' &>/dev/null
+}
+
+# Call the main function
+main
